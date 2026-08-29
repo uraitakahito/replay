@@ -1,0 +1,16 @@
+# pnpm 11 は依存の lifecycle script を既定で実行しない (strictDepBuilds)。走らせて
+# よいものだけを明示する。
+#
+#   @fortawesome/fontawesome-free — false。postinstall は attribution.js で、
+#                                   ライセンス表記を console.log するだけ (実測)。
+#                                   機能には一切関与しないので走らせる理由が無い。
+#
+# 1 つだけ。推測ではなく実測で、この一覧を空にして install すると
+# ERR_PNPM_IGNORED_BUILDS が @fortawesome/fontawesome-free@5.15.4 だけを
+# 名指しして落ちる。
+#
+# 兄弟リポジトリ (browserhive / meadow) は esbuild や unrs-resolver を並べているが
+# ここには要らない。この repo の依存は replaywebpage 1 つで、devDependencies が
+# 無い —— リンタもテストランナも持たないため。**設定を写す前に確かめること。**
+allowBuilds:
+  '@fortawesome/fontawesome-free': false

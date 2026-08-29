@@ -1,0 +1,52 @@
+# The only thing worth checking here is that the image still builds: a broken
+# lockfile, a moved ReplayWeb.page path, or a shell error in the entrypoint
+# all surface as a failed build. There is no test suite because there is no
+# code — the repository is a Dockerfile, an nginx config and a lockfile.
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build the image
+        run: docker build -t replay:ci .
+
+      # Serve it and ask for the things the stack depends on. A build that
+      # succeeds but serves nothing is the failure mode this catches.
+      - name: Serve and probe
+        run: |
+          docker run -d --name replay-ci -p 8899:8080 replay:ci
+          for i in $(seq 30); do
+            curl -sf http://127.0.0.1:8899/__version >/dev/null && break
+            sleep 1
+          done
+
+          echo "--- /__version ---"
+          curl -sf http://127.0.0.1:8899/__version
+
+          echo "--- the app is served ---"
+          curl -sf -o /dev/null http://127.0.0.1:8899/
+          curl -sf -o /dev/null http://127.0.0.1:8899/ui.js
+
+          echo "--- the service worker is served whole ---"
+          test "$(curl -s -o /dev/null -w '%{size_download}' http://127.0.0.1:8899/sw.js)" -gt 1000000
+
+          echo "--- ruffle is NOT bundled ---"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8899/ruffle/ruffle.js)" = 404
+
+          # nginx must survive an upstream that does not answer. A fully
+          # literal proxy_pass would have died at config load instead
+          # ([emerg] host not found in upstream), taking the viewer with it.
+          echo "--- nginx started despite an unresolvable upstream ---"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8899/wacz/x)" = 502
+
+      - name: Container logs
+        if: always()
+        run: docker logs replay-ci || true

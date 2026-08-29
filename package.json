@@ -1,0 +1,14 @@
+{
+  "name": "replay",
+  "version": "0.0.1",
+  "description": "Self-hosted ReplayWeb.page — serves the viewer and proxies WACZ out of an S3-compatible store.",
+  "license": "Unlicense",
+  "private": true,
+  "packageManager": "pnpm@11.23.0",
+  "engines": {
+    "node": ">=24.14.1 <25"
+  },
+  "dependencies": {
+    "replaywebpage": "2.5.0"
+  }
+}
