@@ -2,15 +2,29 @@
 # Render replay.conf, teach nginx how to resolve names, then hand over.
 set -eu
 
-# The upstream is configurable because this image is not BrowserHive-specific:
-# any S3-compatible store with anonymous read on the bucket will do.
-: "${S3_HOST:=seaweedfs.browserhive:8333}"
-: "${S3_BUCKET:=browserhive}"
-export S3_HOST S3_BUCKET
+# Where the bucket lives, as one URL rather than host + bucket in two
+# variables. That is not cosmetic: container-compose rewrites an environment
+# VALUE that equals the compose project name into that project's container IP.
+# The BrowserHive stack is named `browserhive` and its bucket is also named
+# `browserhive`, so `S3_BUCKET=browserhive` arrived here as `192.168.64.197`
+# and every read came back 403 with the IP in the bucket position (measured).
+# A compound value like this one is not touched.
+: "${S3_BUCKET_URL:=http://seaweedfs.browserhive:8333/browserhive}"
+export S3_BUCKET_URL
 
-# Only these two are substituted. nginx's own $variables must survive, so the
-# names are listed explicitly rather than letting envsubst take every $token.
-envsubst '$S3_HOST $S3_BUCKET' \
+# Fail loudly on a shape we cannot serve. The failure this guards against is
+# silent otherwise: nginx starts happily and every /wacz/ read 403s.
+case "${S3_BUCKET_URL}" in
+  http://*/?*|https://*/?*) ;;
+  *)
+    echo "FATAL: S3_BUCKET_URL must be http(s)://<host>[:<port>]/<bucket>, got: ${S3_BUCKET_URL}" >&2
+    exit 1
+    ;;
+esac
+
+# Only this one is substituted. nginx's own $variables must survive, so the
+# name is listed explicitly rather than letting envsubst take every $token.
+envsubst '$S3_BUCKET_URL' \
   < /etc/nginx/templates/replay.conf \
   > /etc/nginx/conf.d/default.conf
 

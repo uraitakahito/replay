@@ -47,10 +47,18 @@ open "http://127.0.0.1:8899/?source=/wacz/<taskId>_<label>.wacz"
 
 ## Configuration
 
-| Variable | Default | Notes |
-|---|---|---|
-| `S3_HOST` | `seaweedfs.browserhive:8333` | host:port of the S3 endpoint |
-| `S3_BUCKET` | `browserhive` | bucket holding the WACZ |
+| Variable | Default |
+|---|---|
+| `S3_BUCKET_URL` | `http://seaweedfs.browserhive:8333/browserhive` |
+
+One URL rather than a host and a bucket in two variables, because splitting
+them is unsafe under at least one orchestrator: **container-compose rewrites an
+environment value that equals the compose project name into a container IP**.
+The BrowserHive stack is named `browserhive` and its bucket is named
+`browserhive` too, so `S3_BUCKET=browserhive` arrived as `192.168.64.197` and
+every read came back 403 — with no error anywhere, since nginx was faithfully
+proxying to a bucket named after an IP address. A compound value is left alone.
+The entrypoint rejects anything that is not `http(s)://<host>[:<port>]/<bucket>`.
 
 The store must allow **anonymous read** on that bucket — this image sends no
 credentials. In the BrowserHive stack that is a SeaweedFS identity named
