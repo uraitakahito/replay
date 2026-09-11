@@ -4,8 +4,8 @@ Self-hosted [ReplayWeb.page](https://replayweb.page/). Serves the viewer from
 this container and proxies WACZ out of an S3-compatible store, so replaying an
 archive touches nothing outside the host.
 
-Built for the BrowserHive dev stack, but not tied to it: point `S3_HOST` and
-`S3_BUCKET` anywhere that allows anonymous reads on the bucket.
+Built for the BrowserHive dev stack, but not tied to it: point `S3_BUCKET_URL`
+at any bucket that allows anonymous reads.
 
 ## Why not just use replayweb.page
 
@@ -41,7 +41,7 @@ open "http://127.0.0.1:8899/?source=/wacz/<taskId>_<label>.wacz"
 | Path | What it is |
 |---|---|
 | `/` | ReplayWeb.page. Drop a `.wacz` on it, or pass `?source=`. |
-| `/wacz/<key>` | Proxied to `${S3_HOST}/${S3_BUCKET}/<key>`, anonymously. Range requests pass through. |
+| `/wacz/<key>` | Proxied to `${S3_BUCKET_URL}/<key>`, anonymously. Range requests pass through. |
 | `/__version` | `{"version","revision","replaywebpage"}` — what this image was baked from. |
 | `/SOURCE.txt` | What is bundled and where its source lives. |
 
