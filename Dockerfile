@@ -41,7 +41,7 @@ RUN RWP=$(node -p "require('/app/node_modules/replaywebpage/package.json').versi
 FROM nginx:1.29-alpine
 # replay.conf is a template, not a config: entrypoint.sh substitutes the
 # upstream into conf.d/ at start. Putting it under conf.d/ directly would
-# make nginx read the unsubstituted ${S3_HOST} and fail.
+# make nginx read the unsubstituted ${S3_BUCKET_URL} and fail.
 COPY nginx/replay.conf /etc/nginx/templates/replay.conf
 COPY nginx/entrypoint.sh /entrypoint.sh
 COPY --from=fetch /out /usr/share/nginx/html
