@@ -50,6 +50,18 @@ open "http://127.0.0.1:8899/?source=/wacz/<taskId>_<label>.wacz"
 | Variable | Default |
 |---|---|
 | `S3_BUCKET_URL` | `http://seaweedfs.browserhive:8333/browserhive` |
+| `TLS_CERT` | unset — plaintext on 8080 only |
+| `TLS_KEY` | unset |
+
+Set `TLS_CERT` and `TLS_KEY` together and the viewer also listens on **443**
+with TLS. Both or neither: one alone is refused at startup, because the failure
+it produces otherwise is silent — plaintext while you believe it is encrypted.
+
+TLS is not decoration here. **The viewer is a service worker**, and a service
+worker only registers in a secure context. Reached over plain http at a
+hostname, this image serves the page and then never opens an archive; the
+browser has simply not created `navigator.serviceWorker` at all. `localhost` is
+the other trustworthy origin, which is why the plaintext example below uses it.
 
 One URL rather than a host and a bucket in two variables, because splitting
 them is unsafe under at least one orchestrator: **container-compose rewrites an
