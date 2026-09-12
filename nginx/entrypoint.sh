@@ -22,9 +22,31 @@ case "${S3_BUCKET_URL}" in
     ;;
 esac
 
-# Only this one is substituted. nginx's own $variables must survive, so the
-# name is listed explicitly rather than letting envsubst take every $token.
-envsubst '$S3_BUCKET_URL' \
+# TLS, if a certificate and key were handed in. Both or neither: a half-set pair
+# is a configuration mistake, and the failure it otherwise produces is the worst
+# kind — the server comes up on plaintext while the operator believes it is
+# encrypted. Say so and stop.
+#
+# ReplayWeb.page needs this more than most viewers. A service worker only
+# registers in a secure context, and the whole viewer is a service worker: over
+# plain http on a hostname the page renders and then never opens an archive.
+# https — or localhost, which browsers treat as trustworthy — is the difference.
+if [ -n "${TLS_CERT:-}" ] && [ -n "${TLS_KEY:-}" ]; then
+  for f in "${TLS_CERT}" "${TLS_KEY}"; do
+    [ -r "${f}" ] || { echo "FATAL: cannot read ${f}" >&2; exit 1; }
+  done
+  TLS_LISTEN="listen 443 ssl; http2 on; ssl_certificate ${TLS_CERT}; ssl_certificate_key ${TLS_KEY};"
+elif [ -n "${TLS_CERT:-}${TLS_KEY:-}" ]; then
+  echo "FATAL: TLS_CERT and TLS_KEY must be set together (only one was given)" >&2
+  exit 1
+else
+  TLS_LISTEN=""
+fi
+export TLS_LISTEN
+
+# Only these are substituted. nginx's own $variables must survive, so the names
+# are listed explicitly rather than letting envsubst take every $token.
+envsubst '$S3_BUCKET_URL $TLS_LISTEN' \
   < /etc/nginx/templates/replay.conf \
   > /etc/nginx/conf.d/default.conf
 
