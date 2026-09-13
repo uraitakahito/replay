@@ -9,8 +9,33 @@
 # ERR_PNPM_IGNORED_BUILDS が @fortawesome/fontawesome-free@5.15.4 だけを
 # 名指しして落ちる。
 #
-# 兄弟リポジトリ (browserhive / meadow) は esbuild や unrs-resolver を並べているが
+# 兄弟リポジトリ (browserhive / capture-fixtures) は esbuild や unrs-resolver を並べているが
 # ここには要らない。この repo の依存は replaywebpage 1 つで、devDependencies が
 # 無い —— リンタもテストランナも持たないため。**設定を写す前に確かめること。**
 allowBuilds:
   '@fortawesome/fontawesome-free': false
+
+# pnpm audit が見逃してよい勧告。この repo では直せず、届きもしないものだけを置く。
+# **足すなら、なぜ・いつ外すかを一緒に書くこと。**
+#
+#   GHSA-gh4j-gqv2-49f6 — fast-xml-parser <5.7.0 の XMLBuilder が、コメントと CDATA の
+#     終端 (`-->` と `]]>`) をエスケープしない。replaywebpage 2.5.0 → @webrecorder/wabac
+#     2.27.2 → fast-xml-parser ^4.5.4 の経路で入っている。
+#
+#     直せない理由: 修正は 5.7.0 からで、4 系には来ていない。wabac は最新の 2.27.3 でも
+#     ^4.5.4 を求め、replaywebpage も最新の 2.5.3 で wabac ^2.27.2 のまま (2026-09-13 に
+#     確かめた)。override で 5 系を差し込んでも**配るものは変わらない**。image に入るのは
+#     replaywebpage の tarball に焼き込まれた sw.js で (Dockerfile)、lockfile の
+#     fast-xml-parser は image に入らない。緑になるのは lockfile の上だけになる。
+#
+#     届かない理由: 脆弱な分岐を通るのは、`commentPropName` か `cdataPropName` を設定した
+#     ときだけ。wabac が XMLBuilder を使うのは DASH manifest の書き換え
+#     (src/rewrite/rewriteVideo.ts) の 1 箇所で、その xmlOpts はどちらも設定しない
+#     (既定は false。配っている sw.js の中でも `cdataPropName:!1`)。
+#
+#     外す条件: replaywebpage を上げるときに、解決される wabac の
+#     `npm view @webrecorder/wabac@<版> dependencies.fast-xml-parser` を見る。5.7.0 以上を
+#     許すなら、この行を消して lockfile を進める。
+auditConfig:
+  ignoreGhsas:
+    - GHSA-gh4j-gqv2-49f6

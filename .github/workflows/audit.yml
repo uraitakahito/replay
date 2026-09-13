@@ -1,0 +1,45 @@
+# Known-vulnerability gate for pnpm-lock.yaml. The one advisory this repository
+# cannot fix (fast-xml-parser, reached through replaywebpage) is skipped in
+# pnpm-workspace.yaml under auditConfig.ignoreGhsas, next to why it cannot be
+# fixed and when to remove it. Keeping the exception there rather than in a
+# flag here means a local `pnpm audit` gives the same answer as this job.
+#
+# Advisories are published independently of our pull requests, so this also
+# runs every day. `schedule` and `workflow_dispatch` only run workflows that
+# exist on the default branch (main); until this file is released, only
+# pull_request and push apply.
+#
+# `pnpm audit` directly rather than through a package script: this repository
+# has no scripts to share, and a direct command reads the lockfile without
+# pnpm 11 installing everything first (it does that before any `pnpm run`).
+name: audit
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  schedule:
+    - cron: '17 21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Known vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      # The version comes from `packageManager` in package.json.
+      - uses: pnpm/action-setup@v6
+
+      # package.json's engines pins Node 24.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Audit the lockfile
+        run: pnpm audit --audit-level=low
