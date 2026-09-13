@@ -100,7 +100,13 @@ either downloads the whole archive per read or fails outright.
 ```
 pnpm add replaywebpage@<version>   # rewrites package.json and the lockfile
 docker build -t replay .           # --frozen-lockfile would fail if they disagreed
+pnpm audit --audit-level=low       # what .github/workflows/audit.yml runs
 ```
+
+`pnpm-workspace.yaml` skips one advisory (`auditConfig.ignoreGhsas`) that the
+current ReplayWeb.page cannot fix. The comment beside it says how to tell
+whether a new version has fixed it; if so, delete the entry in the same pull
+request.
 
 Then tag a release here **before** bumping the submodule pointer in
 browserhive — a submodule pointing at an untagged commit fails in CI jobs that
