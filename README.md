@@ -49,7 +49,7 @@ open "http://127.0.0.1:8899/?source=/wacz/<taskId>_<label>.wacz"
 
 | Variable | Default |
 |---|---|
-| `S3_BUCKET_URL` | `http://seaweedfs.browserhive:8333/browserhive` |
+| `S3_BUCKET_URL` | `http://seaweedfs.crawler-storage:8333/browserhive` |
 | `TLS_CERT` | unset — plaintext on 8080 only |
 | `TLS_KEY` | unset |
 

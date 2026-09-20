@@ -9,7 +9,11 @@ set -eu
 # `browserhive`, so `S3_BUCKET=browserhive` arrived here as `192.168.64.197`
 # and every read came back 403 with the IP in the bucket position (measured).
 # A compound value like this one is not touched.
-: "${S3_BUCKET_URL:=http://seaweedfs.browserhive:8333/browserhive}"
+#
+# The default names the store the crawler repos share (one SeaweedFS, project
+# `crawler-storage`). Both stacks that run this image set the variable
+# explicitly, so the default is only for running the image on its own.
+: "${S3_BUCKET_URL:=http://seaweedfs.crawler-storage:8333/browserhive}"
 export S3_BUCKET_URL
 
 # Fail loudly on a shape we cannot serve. The failure this guards against is
@@ -54,7 +58,7 @@ envsubst '$S3_BUCKET_URL $TLS_LISTEN' \
 # Reading it from resolv.conf keeps this working on whatever DNS the platform
 # hands the container.
 #
-# ipv6=off is not cosmetic. `getent hosts seaweedfs.browserhive` inside a
+# ipv6=off is not cosmetic. `getent hosts seaweedfs.crawler-storage` inside a
 # container on this platform answers with an IPv6 address, and there is no v6
 # route between the VMs — resolving v6-first sends every upstream request to
 # an unreachable address. BrowserHive itself runs with
