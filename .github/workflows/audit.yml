@@ -17,7 +17,7 @@ name: audit
 on:
   pull_request:
   push:
-    branches: [main, develop]
+    branches: [main]
   schedule:
     - cron: '17 21 * * *'
   workflow_dispatch:
