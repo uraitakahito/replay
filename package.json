@@ -1,14 +1,56 @@
 {
+  "//": [
+    "package.json にコメントを書く方法の議論 (npm は `//` という鍵を使わないと決めている):",
+    "https://stackoverflow.com/questions/14221579/how-do-i-add-comments-to-package-json-for-npm-install",
+    "",
+    "ここに書くのは、下の JSON を読んでも分からないことだけ。",
+    "",
+    "## version は版ではない",
+    "リリースの版は git のタグ (vX.Y.Z) だけが持つ。version は 0.0.1 のまま上げない。",
+    "",
+    "## dependencies は replaywebpage だけで、server はそれを import しない",
+    "server (src/) は node: の組み込みだけで書く。実行の段の image は node_modules を持たない。",
+    "replaywebpage が dependencies に在るのは、Dockerfile の fetch の段が `pnpm install --prod` で",
+    "tarball を取り、index.html・ui.js・sw.js・LICENSE を写すため。実行時に要る依存を足すなら、",
+    "Dockerfile の実行の段に prod の node_modules を入れる段も足す。",
+    "",
+    "## pnpm の版",
+    "packageManager が唯一の出どころ。CI (pnpm/action-setup) も Dockerfile (corepack) もここから読む。",
+    "",
+    "## audit は script ではなく直に",
+    ".github/workflows/audit.yml は `pnpm audit` を直に打つ (pnpm 11 は `pnpm run` の前に install するため)。"
+  ],
   "name": "replay",
   "version": "0.0.1",
-  "description": "Self-hosted ReplayWeb.page — serves the viewer and proxies WACZ out of an S3-compatible store.",
+  "description": "Self-hosted ReplayWeb.page — serves the viewer, proxies WACZ out of an S3-compatible store, and answers page queries for replay bundles.",
   "license": "Unlicense",
   "private": true,
-  "packageManager": "pnpm@11.23.0",
+  "type": "module",
+  "packageManager": "pnpm@11.20.0+sha512.9a6f330a95b66446ea088faf1521405a8a01f07fde7124cc9958dfed52d4bb436737e65b08f85f37b46fcba375092558ac51262b816844b22f63406ed166bfee",
   "engines": {
     "node": ">=24.14.1 <25"
   },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm test && pnpm run build"
+  },
   "dependencies": {
     "replaywebpage": "2.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
   }
 }

@@ -3,3 +3,6 @@ node_modules
 .github
 .DS_Store
 private-note
+dist
+public
+coverage

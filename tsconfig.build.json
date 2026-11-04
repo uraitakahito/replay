@@ -1,0 +1,13 @@
+{
+  // dist/ を書く設定。tsconfig.json を継ぎ、src/ だけを書き出す (試験は image に入れない)。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    // image は `node --enable-source-maps` で起こす。落ちたときの行番号を src で読むため
+    "sourceMap": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test"]
+}

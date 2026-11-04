@@ -9,9 +9,9 @@
 # exist on the default branch (main); until this file is released, only
 # pull_request and push apply.
 #
-# `pnpm audit` directly rather than through a package script: this repository
-# has no scripts to share, and a direct command reads the lockfile without
-# pnpm 11 installing everything first (it does that before any `pnpm run`).
+# `pnpm audit` directly rather than through a package script: a direct command
+# reads the lockfile without pnpm 11 installing everything first (it does that
+# before any `pnpm run`).
 name: audit
 
 on:
@@ -19,7 +19,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '17 21 * * *'
+    - cron: "17 21 * * *"
   workflow_dispatch:
 
 permissions:
@@ -39,7 +39,7 @@ jobs:
       # package.json's engines pins Node 24.
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Audit the lockfile
         run: pnpm audit --audit-level=low
