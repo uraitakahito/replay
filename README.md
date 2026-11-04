@@ -119,9 +119,11 @@ the other trustworthy origin, which is why the plaintext example above uses it.
 
 One URL rather than a host and a bucket in two variables, because splitting
 them is unsafe under at least one orchestrator: **container-compose rewrites an
-environment value that equals the compose project name into a container IP**.
-The BrowserHive stack is named `browserhive` and its bucket is named
-`browserhive` too, so `S3_BUCKET=browserhive` arrived as `192.168.64.197` and
+environment value that equals the name of a service it has already started into
+that service's IP** (the service name, not the project name; whether it happens
+depends on the start order). The BrowserHive stack has a service named
+`browserhive` and its bucket is named `browserhive` too, so
+`S3_BUCKET=browserhive` arrived as `192.168.64.197` and
 every read came back 403 — with no error anywhere, since the viewer was
 faithfully proxying to a bucket named after an IP address. A compound value is
 left alone. The server rejects anything that is not
