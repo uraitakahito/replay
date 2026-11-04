@@ -68,16 +68,16 @@ ReplayWeb.page の `?source=` に渡す物。
 }
 ```
 
-| 欄                 | 中身                                                                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `resources[].name` | WACZ の鍵の最後の区切り（ファイル名）。クロールの中で一意。`/` を含めない。`pages.json` と `initialPages` の `filename` はこの名を指す     |
-| `resources[].path` | `/wacz/` ＋ WACZ の鍵。鍵は区切りごとに百分率の符号にする（下の「`/wacz/` の鍵の綴り」）。origin の根からの path                           |
-| `resources[].hash` | `sha256:` ＋ WACZ のファイル全体の sha256（16 進の小文字）。ReplayWeb.page は照らさない（呼び分けの名前に使う）。証拠のために載せる        |
-| `resources` の並び | **起点の頁の WACZ を先頭に**、続けて深さ・撮った時刻の順。頁の中で見つからない物（favicon など）を、ReplayWeb.page は先頭の 3 本だけで探す |
-| `pagesQueryUrl`    | `/q/` ＋ `<置き場>` ＋ `/pages`（末尾の `/` は無し）                                                                                       |
-| `initialPages`     | 一覧の 1 ページ目。25 行まで。起点の頁（深さ 0）を先頭に、深さ・時刻の順。`isSeed` は深さ 0 の頁で true。写しの行は入れない                |
-| `totalPages`       | `pages.json` の `pages` の数                                                                                                               |
-| `replayBundle`     | 台帳の記録。ReplayWeb.page も replay の server も読まない。ほかの欄の名前とぶつけない                                                      |
+| 欄                 | 中身                                                                                                                                                                                                            |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resources[].name` | WACZ の鍵の最後の区切り（ファイル名）。クロールの中で一意。`/` を含めない。`pages.json` と `initialPages` の `filename` はこの名を指す                                                                          |
+| `resources[].path` | `/wacz/` ＋ WACZ の鍵。鍵は区切りごとに百分率の符号にする（下の「`/wacz/` の鍵の綴り」）。origin の根からの path                                                                                                |
+| `resources[].hash` | `sha256:` ＋ WACZ のファイル全体の sha256（16 進の小文字）。ReplayWeb.page は照らさない（呼び分けの名前に使う）。証拠のために載せる                                                                             |
+| `resources` の並び | **起点の頁の WACZ を先頭に**、続けて深さ・撮った時刻の順。ただし ReplayWeb.page が頁の中で見つからない物（favicon など）を探す 3 本は、この並びではなく WACZ の名前（`name`）の順で選ばれる（2.5.0 で確かめた） |
+| `pagesQueryUrl`    | `/q/` ＋ `<置き場>` ＋ `/pages`（末尾の `/` は無し）                                                                                                                                                            |
+| `initialPages`     | 一覧の 1 ページ目。25 行まで。起点の頁（深さ 0）を先頭に、深さ・時刻の順。`isSeed` は深さ 0 の頁で true。写しの行は入れない                                                                                     |
+| `totalPages`       | `pages.json` の `pages` の数                                                                                                                                                                                    |
+| `replayBundle`     | 台帳の記録。ReplayWeb.page も replay の server も読まない。ほかの欄の名前とぶつけない                                                                                                                           |
 
 ## pages.json
 
