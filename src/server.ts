@@ -120,12 +120,15 @@ export const createReplayServer = (options: ReplayServerOptions): ReplayServer =
   let active = 0;
   const handle = (req: ReplayRequest, res: ReplayResponse): void => {
     const started = performance.now();
+    // 相手の address は受けた時に取る。HTTP/2 では答えを閉じた後に socket を引くと、stream が閉じていて
+    // 値が無い (記録が `-` になっていた)。nginx の $remote_addr は HTTP/2 でも出ていた
+    const remote = req.socket?.remoteAddress ?? "-";
     active += 1;
     res.once("close", () => {
       active -= 1;
       const elapsed = (performance.now() - started).toFixed(1);
       log(
-        `${new Date().toISOString()} ${req.socket?.remoteAddress ?? "-"} "${req.method ?? "-"} ${req.url ?? "-"} HTTP/${req.httpVersion}" ${String(res.statusCode)} ${elapsed}ms`,
+        `${new Date().toISOString()} ${remote} "${req.method ?? "-"} ${req.url ?? "-"} HTTP/${req.httpVersion}" ${String(res.statusCode)} ${elapsed}ms`,
       );
     });
     route(req, res).catch((error: unknown) => {

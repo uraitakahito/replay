@@ -13,6 +13,8 @@ let certificate: SelfSignedCertificate;
 let store: StandInStore;
 let replay: TestReplay;
 let secureOrigin: string;
+/** server が出した要求の記録の行 */
+const logLines: string[] = [];
 
 const WACZ = Buffer.from(Array.from({ length: 4096 }, (_, n) => n % 253));
 
@@ -38,6 +40,7 @@ beforeAll(async () => {
   );
   replay = await startReplay(store.bucketUrl, {
     tls: { cert: certificate.cert, key: certificate.key },
+    log: (line) => logLines.push(line),
   });
   secureOrigin = `https://localhost:${String(replay.addresses.secure!.port)}`;
 });
@@ -89,6 +92,18 @@ describe("TLS（TLS_CERT と TLS_KEY が揃ったとき）", () => {
     expect(answer.protocol).toBe("h2");
     expect(answer.status).toBe(200);
     expect(answer.headers["content-type"]).toBe("text/html; charset=utf-8");
+  });
+
+  it("HTTP/2 の要求の記録にも相手の address が出る（nginx の $remote_addr と同じ）", async () => {
+    const answer = await getOverHttp2("/__version?log-remote");
+    expect(answer.status).toBe(200);
+    // 記録は答えを閉じた時に書く。届くまで少し待つ
+    let line: string | undefined;
+    for (let tries = 0; tries < 50 && line === undefined; tries += 1) {
+      line = logLines.find((one) => one.includes("/__version?log-remote"));
+      if (line === undefined) await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(line).toMatch(/^\S+ 127\.0\.0\.1 "GET \/__version\?log-remote HTTP\/2\.0" 200 /);
   });
 
   it("TLS の口は HTTP/1.1 でも答える", async () => {
