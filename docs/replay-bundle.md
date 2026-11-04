@@ -114,8 +114,10 @@ replay の server だけが読む。
 ```
 
 - `version` は `1`。ほかの版は読まない（`/q/` が 502 で答える）。
-- 1 行 = WACZ の `pages/pages.jsonl` の 1 行（先頭の `{"format":…}` の行は除く）。`id`・`url`・`ts`・`title`・
+- 1 行 = WACZ の `pages/pages.jsonl` の 1 行（先頭の `{"format":…}` の行は除く）。`url`・`ts`・`title`・
   `stage` はそのまま写す（無ければ `null`）。`filename` は `resources[].name`。`depth` は台帳の深さ。
+- `id` もそのまま写す。ただし行に無ければ、書き手（台帳）が `<filename>#<pages.jsonl の中で何番目の頁の行か（0 から）>`
+  を振る。`id` は必ず文字列で、合本の中で一意（`initialPages` の `id` も同じ）。
 - 要る欄は `id`・`url`・`filename`（文字列）と `keys`（文字列の配列）。`ts`・`title`・`stage` は文字列か `null`、
   `depth` は数か `null`。形が違えば `/q/` は 502 で答える。
 - `keys` は文書の行（`stage` が無い行）だけに入れる。頼んだ URL と、
