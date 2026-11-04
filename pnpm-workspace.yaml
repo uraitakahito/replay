@@ -10,10 +10,11 @@
 # 名指しして落ちる。
 #
 # 兄弟リポジトリ (browserhive / capture-fixtures) は esbuild や unrs-resolver を並べているが
-# ここには要らない。この repo の依存は replaywebpage 1 つで、devDependencies が
-# 無い —— リンタもテストランナも持たないため。**設定を写す前に確かめること。**
+# ここには要らない。devDependencies (tsc・ESLint・prettier・vitest) を足した後
+# (2026-11-05) も、一覧を空にして install すると名指されるのは fontawesome だけだった。
+# **設定を写す前に確かめること。**
 allowBuilds:
-  '@fortawesome/fontawesome-free': false
+  "@fortawesome/fontawesome-free": false
 
 # pnpm audit が見逃してよい勧告。この repo では直せず、届きもしないものだけを置く。
 # **足すなら、なぜ・いつ外すかを一緒に書くこと。**
@@ -36,6 +37,19 @@ allowBuilds:
 #     外す条件: replaywebpage を上げるときに、解決される wabac の
 #     `npm view @webrecorder/wabac@<版> dependencies.fast-xml-parser` を見る。5.7.0 以上を
 #     許すなら、この行を消して lockfile を進める。
+#
+#   GHSA-g3hv-75wg-m249 — minimatch <11.0.1 の globparts の増幅による DoS。修正は 11.0.1 からで、
+#     10 系には来ていない。要求元は eslint・@eslint/config-array・@typescript-eslint/typescript-estree
+#     で、2026-11-05 の時点でどれの最新版も ^10 を求める (eslint ^10.2.6・config-array ^10.2.4・
+#     typescript-estree ^10.2.2)。capture-ledger も同じ理由で外している。
+#
+#     届かない理由: どれも devDependencies の lint の道具で、image には入らない (fetch の段は
+#     `--prod`、実行の段は node_modules を持たない)。読むパターンもこの repo の設定と lint の
+#     対象だけ。
+#
+#     外す条件: これらの親が 11.0.1 以上を求める版を出したとき (update で直る)。確かめ方は
+#     `pnpm why minimatch`。
 auditConfig:
   ignoreGhsas:
     - GHSA-gh4j-gqv2-49f6
+    - GHSA-g3hv-75wg-m249

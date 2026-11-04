@@ -1,0 +1,39 @@
+{
+  // 型を見るだけの設定 (src・test・*.config.ts)。dist/ を書くのは tsconfig.build.json。
+  // 手本は capture-ledger の tsconfig.json。違いは target と lib (Node 24 だけで動かす) と、
+  // JSON の import を使わないので resolveJsonModule を持たないこと。
+  "compilerOptions": {
+    /* Type Checking */
+    "strict": true,
+    // arr[i] を T | undefined にする
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    // index signature の鍵は括弧で読む (env["S3_BUCKET_URL"])
+    "noPropertyAccessFromIndexSignature": true,
+
+    /* Modules */
+    // dist/ を node がそのまま読む (bundler を通さない)
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    /* Emit */
+    "noEmit": true,
+
+    /* Interop Constraints */
+    "verbatimModuleSyntax": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    /* Language and Environment */
+    // Node 24 だけで動かす (package.json の engines・Dockerfile の node:24)
+    "target": "ES2023",
+    // DOM は入れない。server は Node の上だけで動く
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "test/**/*", "*.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

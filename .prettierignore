@@ -1,0 +1,8 @@
+dist
+node_modules
+public
+coverage
+pnpm-lock.yaml
+# 合本の正規化の試験の例 (docs/replay-bundle.md)。capture-ledger が写しを持ち、中身が同じかを
+# 照らすので、prettier に並べ直させない (バイトで同じ物を置く)。
+test/vectors/canonical-url.json

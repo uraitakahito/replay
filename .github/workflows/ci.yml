@@ -1,7 +1,8 @@
-# The only thing worth checking here is that the image still builds: a broken
-# lockfile, a moved ReplayWeb.page path, or a shell error in the entrypoint
-# all surface as a failed build. There is no test suite because there is no
-# code — the repository is a Dockerfile, an nginx config and a lockfile.
+# Two jobs. `check` runs the server's own checks — types, lint, format, the
+# vitest suite (which covers every behaviour the stacks rely on, against a
+# stand-in store) and the build. `build` builds the image and asks running
+# containers for what the stacks depend on: a build that succeeds but serves
+# nothing, or a server that only works outside the image, is what it catches.
 name: CI
 
 on:
@@ -10,20 +11,55 @@ on:
   pull_request:
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      # Before setup-node: `cache: pnpm` needs pnpm on PATH to find the store.
+      # The version comes from `packageManager` in package.json.
+      - uses: pnpm/action-setup@v6
+
+      # package.json's engines pins Node 24.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Format check
+        run: pnpm run format:check
+
+      # The TLS tests make a self-signed certificate with openssl.
+      - name: Tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm run build
+
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
 
       - name: Build the image
         run: docker build -t replay:ci .
 
-      # Serve it and ask for the things the stack depends on. A build that
-      # succeeds but serves nothing is the failure mode this catches.
+      # Serve it and ask for the things the stacks depend on.
       - name: Serve and probe
         run: |
           docker run -d --name replay-ci -p 8899:8080 replay:ci
-          for i in $(seq 30); do
+          for _ in $(seq 30); do
             curl -sf http://127.0.0.1:8899/__version >/dev/null && break
             sleep 1
           done
@@ -35,18 +71,82 @@ jobs:
           curl -sf -o /dev/null http://127.0.0.1:8899/
           curl -sf -o /dev/null http://127.0.0.1:8899/ui.js
 
+          echo "--- HTML and JS say utf-8 ---"
+          test "$(curl -s -o /dev/null -w '%{content_type}' http://127.0.0.1:8899/)" = "text/html; charset=utf-8"
+          test "$(curl -s -o /dev/null -w '%{content_type}' http://127.0.0.1:8899/ui.js)" = "text/javascript; charset=utf-8"
+
           echo "--- the service worker is served whole ---"
           test "$(curl -s -o /dev/null -w '%{size_download}' http://127.0.0.1:8899/sw.js)" -gt 1000000
 
           echo "--- ruffle is NOT bundled ---"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8899/ruffle/ruffle.js)" = 404
 
-          # nginx must survive an upstream that does not answer. A fully
-          # literal proxy_pass would have died at config load instead
-          # ([emerg] host not found in upstream), taking the viewer with it.
-          echo "--- nginx started despite an unresolvable upstream ---"
+          # The store's name does not resolve here. The server must start
+          # anyway and resolve per request, so only /wacz/ fails.
+          echo "--- started despite an unresolvable upstream ---"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8899/wacz/x)" = 502
+
+          # It starts as root (to bind 443) and then switches to `node`.
+          echo "--- serving as node (uid 1000) ---"
+          docker exec replay-ci grep -E '^Uid:[[:space:]]+1000[[:space:]]' /proc/1/status
+
+      # node is PID 1. Without its own SIGTERM handler the signal is ignored
+      # and `docker stop` falls back to SIGKILL after the timeout (exit 137).
+      - name: Stops on SIGTERM
+        run: |
+          docker stop -t 10 replay-ci
+          test "$(docker inspect -f '{{.State.ExitCode}}' replay-ci)" = 0
+
+      # TLS_CERT and TLS_KEY together open 443 with TLS and HTTP/2, and 8080
+      # stays open. The key is 0600 and owned by the runner: the server reads
+      # it as root before switching to `node`.
+      - name: TLS on 443 with HTTP/2
+        run: |
+          mkdir -p tls
+          openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+            -keyout tls/tls.key -out tls/tls.crt -days 1 -subj /CN=localhost \
+            -addext subjectAltName=DNS:localhost,IP:127.0.0.1
+          docker run -d --name replay-tls -p 8443:443 -p 8898:8080 -v "$PWD/tls:/tls:ro" \
+            -e TLS_CERT=/tls/tls.crt -e TLS_KEY=/tls/tls.key replay:ci
+          for _ in $(seq 30); do
+            curl -sf --cacert tls/tls.crt https://localhost:8443/__version >/dev/null && break
+            sleep 1
+          done
+
+          echo "--- HTTP/2 over TLS ---"
+          test "$(curl -s --cacert tls/tls.crt -o /dev/null -w '%{http_version}' https://localhost:8443/)" = 2
+
+          echo "--- plaintext is still served ---"
+          curl -sf -o /dev/null http://127.0.0.1:8898/__version
+
+      # A replay bundle's pages.json in a stand-in store (a static file server
+      # on the host) and a page query answered from it. Host networking so the
+      # container reaches the stand-in at 127.0.0.1.
+      - name: Answers a page query from a bundle in the store
+        run: |
+          mkdir -p store/bucket/org/ci/crawls/c1/r1
+          cat > store/bucket/org/ci/crawls/c1/r1/pages.json <<'JSON'
+          {"version":1,"crawlId":"c1","rev":1,"pages":[
+            {"id":"leaf","url":"http://site.test/hub/leaf","ts":"2026-11-05T01:00:01.000Z","title":"leaf","filename":"leaf.wacz","depth":1,"stage":null,"keys":["http://site.test/hub/leaf"]},
+            {"id":"hub","url":"http://site.test/hub","ts":"2026-11-05T01:00:00.000Z","title":"hub","filename":"hub.wacz","depth":0,"stage":null,"keys":["http://site.test/hub"]}
+          ]}
+          JSON
+          python3 -m http.server 9000 --bind 127.0.0.1 --directory store > store.log 2>&1 &
+          docker run -d --name replay-q --network host \
+            -e S3_BUCKET_URL=http://127.0.0.1:9000/bucket replay:ci
+          for _ in $(seq 30); do
+            curl -sf http://127.0.0.1:8080/__version >/dev/null && break
+            sleep 1
+          done
+
+          answer="$(curl -sf 'http://127.0.0.1:8080/q/org/ci/crawls/c1/r1/pages?url=http://site.test/hub&pageSize=25')"
+          echo "$answer"
+          test "$(echo "$answer" | jq -c '[.total, [.items[].id]]')" = '[2,["hub","leaf"]]'
 
       - name: Container logs
         if: always()
-        run: docker logs replay-ci || true
+        run: |
+          for name in replay-ci replay-tls replay-q; do
+            echo "--- $name ---"
+            docker logs "$name" || true
+          done
