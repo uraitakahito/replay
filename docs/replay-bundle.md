@@ -27,6 +27,10 @@ https://<replay>/?source=/wacz/<置き場>/replay.json
 - **一度書いた版は書き換えない。** 合本を作り直すときは、新しい版の置き場に書く。replay の server は、
   読んだ `pages.json` を新しさを確かめずに手元に置く。
 - 版は 1 から始まる整数（クロールごと）。台帳が払い出し、台帳が指す版は前へだけ進む。
+- 終わったクロール（succeeded・failed）の版には、台帳が署名した `<置き場>/replay-digest.json`
+  （`{path: "replay.json", hash, signedData}`。WACZ の `datapackage-digest.json` と同じ形）が在りうる。
+  replay は読まない。何を証すかと検め方は、
+  [capture-ledger](https://github.com/uraitakahito/capture-ledger) の docs（archive-ledger の「合本の署名」）に在る。
 
 ## replay.json
 
@@ -63,7 +67,12 @@ ReplayWeb.page の `?source=` に渡す物。
     "depth": 2,
     "builtAt": "2026-11-05T03:30:00.000Z",
     "members": 140,
-    "skipped": 2
+    "skipped": 2,
+    "crawlState": "succeeded",
+    "stopReason": "completed",
+    "finishedAt": "2026-11-05T03:29:58.000Z",
+    "skippedResources": [{ "name": "b7e1…_3f2a….wacz", "hash": "sha256:…" }],
+    "pagesHash": "sha256:<pages.json の sha256>"
   }
 }
 ```
@@ -77,7 +86,7 @@ ReplayWeb.page の `?source=` に渡す物。
 | `pagesQueryUrl`    | `/q/` ＋ `<置き場>` ＋ `/pages`（末尾の `/` は無し）                                                                                                                                                            |
 | `initialPages`     | 一覧の 1 ページ目。25 行まで。起点の頁（深さ 0）を先頭に、深さ・時刻の順。`isSeed` は深さ 0 の頁で true。写しの行は入れない                                                                                     |
 | `totalPages`       | `pages.json` の `pages` の数                                                                                                                                                                                    |
-| `replayBundle`     | 台帳の記録。ReplayWeb.page も replay の server も読まない。ほかの欄の名前とぶつけない                                                                                                                           |
+| `replayBundle`     | 台帳の記録。ReplayWeb.page も replay の server も読まない（知らない欄は読み飛ばす）。ほかの欄の名前とぶつけない。欄の意味は台帳の docs                                                                          |
 
 ## pages.json
 
