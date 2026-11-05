@@ -37,8 +37,11 @@ open "http://127.0.0.1:8899/"
 Inside the BrowserHive stack, where the object store is reachable:
 
 ```
-open "http://127.0.0.1:8899/?source=/wacz/<taskId>_<label>.wacz"
+open "http://127.0.0.1:8899/?source=/wacz/<taskId>_<correlationId>.wacz"
 ```
+
+A capture with labels adds them (`<taskId>_<correlationId>_<label>.wacz`), and an empty
+correlationId keeps its slot (`<taskId>_.wacz`, `<taskId>__<label>.wacz`).
 
 A crawl as one archive, from the replay bundle capture-ledger writes next to its
 WACZ (the format is [docs/replay-bundle.md](docs/replay-bundle.md)):
