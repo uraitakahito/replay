@@ -3,12 +3,16 @@
 # on Node. The last stage is the one that runs: BrowserHive's build-images.mjs
 # and capture-ledger's compose both build the last stage without a target.
 
-# node 24, not 26: replaywebpage declares `engines: {node: ">=22 <25"}`.
-# Newer bases install fine but every build prints an engine mismatch, and a
-# warning nobody can act on is a warning everybody learns to ignore.
-FROM node:24-bookworm-slim AS fetch
+# node 26, the same as .nvmrc. replaywebpage declares `engines: {node: ">=22 <25"}`,
+# but this stage only copies three static files out of its tarball and never runs
+# it, and the frozen install prints no engine warning (measured on Node 26.13.0).
+#
+# corepack left the Node image in 25, so both pnpm stages install it first. It is
+# what reads `packageManager` from package.json, so the pnpm version stays declared
+# once. The last stage has neither corepack nor pnpm.
+FROM node:26-bookworm-slim AS fetch
 WORKDIR /app
-RUN corepack enable
+RUN npm i -g corepack@0.35.0 && corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # --frozen-lockfile is the version pin. The lockfile carries the tarball's
 # sha512, so a ReplayWeb.page that quietly moved fails HERE rather than
@@ -43,16 +47,16 @@ RUN RWP=$(node -p "require('/app/node_modules/replaywebpage/package.json').versi
 # The server (src/): TypeScript compiled by tsc. It imports nothing but node:
 # built-ins, so the run stage takes dist/ and no node_modules at all — the dev
 # dependencies installed here (tsc and friends) never leave this stage.
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
-RUN corepack enable
+RUN npm i -g corepack@0.35.0 && corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 RUN pnpm run build
 
-FROM node:24-bookworm-slim
+FROM node:26-bookworm-slim
 WORKDIR /app
 # package.json for `"type": "module"` (dist/ is ES modules), nothing else.
 COPY package.json ./

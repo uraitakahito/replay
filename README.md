@@ -185,7 +185,7 @@ either downloads the whole archive per read or fails outright.
 ## Development
 
 The server is TypeScript in `src/`, compiled by `tsc` to `dist/` and run on
-Node 24 with no runtime dependencies — `node:` built-ins only.
+Node 26 with no runtime dependencies — `node:` built-ins only.
 
 ```
 pnpm install
