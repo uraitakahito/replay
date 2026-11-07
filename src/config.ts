@@ -11,7 +11,7 @@ export class StartupError extends Error {
 }
 
 /**
- * 既定の保管庫。crawler の repo が共有する SeaweedFS (project `crawler-storage`) の bucket。
+ * 既定の保管庫。Web Capture の repo が共有する SeaweedFS (project `crawler-storage`) の bucket。
  * この image を動かす 2 つのスタックはどちらも値を書くので、既定は image を単独で動かすときのため。
  */
 export const DEFAULT_S3_BUCKET_URL = "http://seaweedfs.crawler-storage:8333/browserhive";
