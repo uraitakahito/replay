@@ -4,14 +4,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SelfSignedCertificate } from "./helpers/files.js";
 import { cleanupTemporaryDirectories, makeSelfSignedCertificate } from "./helpers/files.js";
 import { send } from "./helpers/net.js";
-import type { TestReplay } from "./helpers/replay.js";
-import { startReplay } from "./helpers/replay.js";
+import type { TestViewer } from "./helpers/viewer.js";
+import { startViewer } from "./helpers/viewer.js";
 import type { StandInStore } from "./helpers/store.js";
 import { startStore } from "./helpers/store.js";
 
 let certificate: SelfSignedCertificate;
 let store: StandInStore;
-let replay: TestReplay;
+let viewer: TestViewer;
 let secureOrigin: string;
 /** server が出した要求の記録の行 */
 const logLines: string[] = [];
@@ -38,15 +38,15 @@ beforeAll(async () => {
     }),
     "application/json",
   );
-  replay = await startReplay(store.bucketUrl, {
+  viewer = await startViewer(store.bucketUrl, {
     tls: { cert: certificate.cert, key: certificate.key },
     log: (line) => logLines.push(line),
   });
-  secureOrigin = `https://localhost:${String(replay.addresses.secure!.port)}`;
+  secureOrigin = `https://localhost:${String(viewer.addresses.secure!.port)}`;
 });
 
 afterAll(async () => {
-  await replay.close();
+  await viewer.close();
   await store.close();
   cleanupTemporaryDirectories();
 });
@@ -122,7 +122,7 @@ describe("TLS（TLS_CERT と TLS_KEY が揃ったとき）", () => {
   });
 
   it("平文の口も開いたまま", async () => {
-    const res = await send(replay.base, "/__version");
+    const res = await send(viewer.base, "/__version");
     expect(res.status).toBe(200);
   });
 

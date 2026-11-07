@@ -15,7 +15,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { StartupError } from "./config.js";
-import type { ReplayRequest, ReplayResponse } from "./respond.js";
+import type { ViewerRequest, ViewerResponse } from "./respond.js";
 import { send } from "./respond.js";
 
 const HTML = "text/html; charset=utf-8";
@@ -84,7 +84,7 @@ export const loadStaticFiles = (dir: string): StaticFiles => {
  * 条件つきの要求に合うか (RFC 9110 13.2.2 の順)。If-None-Match があれば If-Modified-Since は見ない。
  * If-None-Match は弱い比較 (W/ を外して比べる)。
  */
-const notModified = (req: ReplayRequest, file: StaticFile): boolean => {
+const notModified = (req: ViewerRequest, file: StaticFile): boolean => {
   const ifNoneMatch = req.headers["if-none-match"];
   if (ifNoneMatch !== undefined) {
     return ifNoneMatch
@@ -101,7 +101,7 @@ const notModified = (req: ReplayRequest, file: StaticFile): boolean => {
 };
 
 /** 1 つ配る。GET と HEAD だけ (呼び手が method を見てから呼ぶ)。 */
-export const serveStatic = (req: ReplayRequest, res: ReplayResponse, file: StaticFile): void => {
+export const serveStatic = (req: ViewerRequest, res: ViewerResponse, file: StaticFile): void => {
   const validators = { etag: file.etag, "last-modified": file.lastModified };
   if (notModified(req, file)) {
     res.writeHead(304, validators);

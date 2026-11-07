@@ -1,7 +1,7 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import type { ReplayProcess, RunOptions, RunningReplay } from "../src/run.js";
+import type { ViewerProcess, RunOptions, RunningViewer } from "../src/run.js";
 import { run } from "../src/run.js";
 import {
   cleanupTemporaryDirectories,
@@ -14,7 +14,7 @@ import type { StandInStore } from "./helpers/store.js";
 import { STORE_HOST, startStore } from "./helpers/store.js";
 
 interface FakeProcess {
-  readonly proc: ReplayProcess;
+  readonly proc: ViewerProcess;
   readonly out: string[];
   readonly err: string[];
   readonly exits: number[];
@@ -31,7 +31,7 @@ const fakeProcess = (
   const exits: number[] = [];
   const signals = new Map<string, () => void>();
   const privileges: string[] = [];
-  const proc: ReplayProcess = {
+  const proc: ViewerProcess = {
     env,
     stdout: { write: (text: string) => out.push(text) },
     stderr: { write: (text: string) => err.push(text) },
@@ -59,7 +59,7 @@ const fakeProcess = (
 let store: StandInStore;
 let staticDir: string;
 let resolvConf: string;
-const running: RunningReplay[] = [];
+const running: RunningViewer[] = [];
 
 beforeAll(async () => {
   store = await startStore();
@@ -68,7 +68,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  for (const replay of running.splice(0)) await replay.server.close(0);
+  for (const viewer of running.splice(0)) await viewer.server.close(0);
   store.requests.length = 0;
   store.delay(0);
 });
@@ -91,12 +91,12 @@ const options = (overrides: Partial<RunOptions> = {}): RunOptions => ({
 });
 
 const start = async (fake: FakeProcess, overrides: Partial<RunOptions> = {}) => {
-  const replay = await run(fake.proc, options(overrides));
-  if (replay !== undefined) running.push(replay);
-  return replay;
+  const viewer = await run(fake.proc, options(overrides));
+  if (viewer !== undefined) running.push(viewer);
+  return viewer;
 };
 
-const baseOf = (replay: RunningReplay) => `http://127.0.0.1:${String(replay.addresses.plain.port)}`;
+const baseOf = (viewer: RunningViewer) => `http://127.0.0.1:${String(viewer.addresses.plain.port)}`;
 
 describe("起動の誤り（FATAL の 1 行と exit 1）", () => {
   it("S3_BUCKET_URL の形が違う", async () => {
@@ -160,37 +160,37 @@ describe("起動の誤り（FATAL の 1 行と exit 1）", () => {
 describe("起きてよいこと", () => {
   it("nameserver が無ければ WARN を出して起きる", async () => {
     const fake = fakeProcess({ S3_BUCKET_URL: store.bucketUrl });
-    const replay = await start(fake, {
+    const viewer = await start(fake, {
       resolvConfPath: writeTemporaryFile("resolv.conf", "search crawler-storage\n"),
     });
-    expect(replay).toBeDefined();
+    expect(viewer).toBeDefined();
     expect(fake.err).toEqual([
       "WARN: no nameserver in /etc/resolv.conf; /wacz/ will not resolve\n",
     ]);
     expect(fake.exits).toEqual([]);
-    expect((await send(baseOf(replay!), "/")).status).toBe(200);
+    expect((await send(baseOf(viewer!), "/")).status).toBe(200);
   });
 
   it("保管庫の名前が引けなくても起き、/ は 200・/wacz/ は 502", async () => {
     const fake = fakeProcess({});
-    const replay = await start(fake, { lookup: stubLookup({}).lookup });
+    const viewer = await start(fake, { lookup: stubLookup({}).lookup });
     expect(fake.exits).toEqual([]);
     expect(fake.out.join("")).toContain("http://seaweedfs.crawler-storage:8333/browserhive");
-    expect((await send(baseOf(replay!), "/")).status).toBe(200);
-    expect((await send(baseOf(replay!), "/wacz/x")).status).toBe(502);
+    expect((await send(baseOf(viewer!), "/")).status).toBe(200);
+    expect((await send(baseOf(viewer!), "/wacz/x")).status).toBe(502);
   });
 
   it("TLS の 2 つが揃えば、平文の口に加えて TLS の口も開く", async () => {
     const certificate = makeSelfSignedCertificate();
     const fake = fakeProcess({ TLS_CERT: certificate.certPath, TLS_KEY: certificate.keyPath });
-    const replay = await start(fake);
-    expect(replay?.addresses.secure).toBeDefined();
-    expect((await send(baseOf(replay!), "/__version")).status).toBe(200);
+    const viewer = await start(fake);
+    expect(viewer?.addresses.secure).toBeDefined();
+    expect((await send(baseOf(viewer!), "/__version")).status).toBe(200);
   });
 
   it("TLS が無ければ平文の口だけ", async () => {
-    const replay = await start(fakeProcess({}));
-    expect(replay?.addresses.secure).toBeUndefined();
+    const viewer = await start(fakeProcess({}));
+    expect(viewer?.addresses.secure).toBeUndefined();
   });
 });
 
@@ -201,8 +201,8 @@ describe("止め方（PID 1 で受ける合図）", () => {
       store.put("slow.wacz", "slow");
       store.delay(200);
       const fake = fakeProcess({ S3_BUCKET_URL: store.bucketUrl });
-      const replay = await start(fake, { shutdownGraceMs: 2_000 });
-      const base = baseOf(replay!);
+      const viewer = await start(fake, { shutdownGraceMs: 2_000 });
+      const base = baseOf(viewer!);
       const inFlight = send(base, "/wacz/slow.wacz");
       await expect.poll(() => store.requests.some((seen) => seen.key === "slow.wacz")).toBe(true);
       fake.signals.get(signal)!();
@@ -216,8 +216,8 @@ describe("止め方（PID 1 で受ける合図）", () => {
 describe("root から降りる", () => {
   it("root で起きたら、口を開いた後に node の利用者へ降りる", async () => {
     const fake = fakeProcess({}, { uid: 0 });
-    const replay = await start(fake);
-    expect(replay).toBeDefined();
+    const viewer = await start(fake);
+    expect(viewer).toBeDefined();
     expect(fake.privileges).toEqual(["setgroups []", "setgid node", "setuid node"]);
     expect(fake.out.join("")).toContain("now serving as node");
   });
@@ -230,8 +230,8 @@ describe("root から降りる", () => {
 
   it("降りられなければ WARN を出して、root のまま続ける", async () => {
     const fake = fakeProcess({}, { uid: 0, failToSwitch: true });
-    const replay = await start(fake);
-    expect(replay).toBeDefined();
+    const viewer = await start(fake);
+    expect(viewer).toBeDefined();
     expect(fake.err).toEqual([
       "WARN: could not switch to the node user (EPERM, Operation not permitted); serving as root\n",
     ]);

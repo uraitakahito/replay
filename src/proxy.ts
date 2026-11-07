@@ -15,7 +15,7 @@ import type { IncomingHttpHeaders, OutgoingHttpHeaders } from "node:http";
 import { pipeline } from "node:stream/promises";
 import type { Upstream } from "./config.js";
 import { decodeKeyPath, encodeKeyPath } from "./key-path.js";
-import type { ReplayRequest, ReplayResponse } from "./respond.js";
+import type { ViewerRequest, ViewerResponse } from "./respond.js";
 import { refuseUnlessRead, sendText } from "./respond.js";
 import type { UpstreamOptions } from "./upstream.js";
 import { UpstreamError, sendUpstream } from "./upstream.js";
@@ -80,8 +80,8 @@ export interface ProxyContext {
  * @param rawQuery `?` の後ろ (無ければ undefined)
  */
 export const proxyWacz = async (
-  req: ReplayRequest,
-  res: ReplayResponse,
+  req: ViewerRequest,
+  res: ViewerResponse,
   rawKey: string,
   rawQuery: string | undefined,
   context: ProxyContext,

@@ -20,7 +20,7 @@
     "## audit は script ではなく直に",
     ".github/workflows/audit.yml は `pnpm audit` を直に打つ (pnpm 11 は `pnpm run` の前に install するため)。"
   ],
-  "name": "replay",
+  "name": "replayweb-server",
   "version": "0.0.1",
   "description": "Self-hosted ReplayWeb.page — serves the viewer, proxies WACZ out of an S3-compatible store, and answers page queries for replay bundles.",
   "license": "Unlicense",

@@ -1,4 +1,4 @@
-# replay
+# replayweb-server
 
 Self-hosted [ReplayWeb.page](https://replayweb.page/). A small Node server serves
 the viewer from this container, proxies WACZ out of an S3-compatible store, and
@@ -29,14 +29,16 @@ Three reasons, in increasing order of importance:
 ## Run
 
 ```
-docker build -t replay .
-docker run --rm -p 8899:8080 replay
+docker build -t replayweb-server .
+docker run --rm -p 8899:8080 replayweb-server
 open "http://127.0.0.1:8899/"
 ```
 
-Inside the BrowserHive stack, where the object store is reachable:
+Inside a stack, where the object store is reachable. BrowserHive's stack serves it
+under its name with TLS; capture-ledger's stack publishes it on the loopback:
 
 ```
+open "https://replayweb-server.browserhive/?source=/wacz/<taskId>_<correlationId>.wacz"
 open "http://127.0.0.1:8899/?source=/wacz/<taskId>_<correlationId>.wacz"
 ```
 
@@ -202,7 +204,7 @@ probed for what the stacks depend on.
 
 ```
 pnpm add replaywebpage@<version>   # rewrites package.json and the lockfile
-docker build -t replay .           # --frozen-lockfile would fail if they disagreed
+docker build -t replayweb-server .           # --frozen-lockfile would fail if they disagreed
 pnpm audit --audit-level=low       # what .github/workflows/audit.yml runs
 ```
 
@@ -211,5 +213,5 @@ be fixed from here. The comment beside each says how to tell whether it can be
 removed; if so, delete the entry in the same pull request.
 
 Then tag a release here **before** bumping the submodule pointer in
-browserhive — a submodule pointing at an untagged commit fails in CI jobs that
+browserhive and capture-ledger — a submodule pointing at an untagged commit fails in CI jobs that
 look unrelated to this repository.

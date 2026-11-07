@@ -1,5 +1,5 @@
 /**
- * replay の server。8080 で平文の HTTP/1.1 を常に、TLS の証明書と鍵があれば 443 で TLS
+ * この repo の Node server。8080 で平文の HTTP/1.1 を常に、TLS の証明書と鍵があれば 443 で TLS
  * (HTTP/2 と HTTP/1.1) も待つ。どちらも同じ道筋で答える:
  *
  *   /wacz/<鍵>          保管庫へ中継 (proxy.ts)
@@ -15,7 +15,7 @@ import type { AddressInfo, LookupFunction, Socket } from "node:net";
 import type { Upstream } from "./config.js";
 import { BundleCache, answerPagesQuery, loadPagesJson } from "./pages-query.js";
 import { proxyWacz } from "./proxy.js";
-import type { ReplayRequest, ReplayResponse } from "./respond.js";
+import type { ViewerRequest, ViewerResponse } from "./respond.js";
 import { refuseUnlessRead, sendText } from "./respond.js";
 import type { StaticFiles } from "./static.js";
 import { serveStatic } from "./static.js";
@@ -29,7 +29,7 @@ const DEFAULT_PAGES_CACHE_ENTRIES = 16;
 /** 止めるときに、走っている要求を待つ長さ */
 export const DEFAULT_SHUTDOWN_GRACE_MS = 3_000;
 
-export interface ReplayServerOptions {
+export interface ViewerServerOptions {
   readonly upstream: Upstream;
   readonly staticFiles: StaticFiles;
   /** 揃っていれば 443 も開く */
@@ -48,7 +48,7 @@ export interface ListenAddresses {
   readonly secure: AddressInfo | undefined;
 }
 
-export interface ReplayServer {
+export interface ViewerServer {
   /** 平文を開き、TLS があれば TLS も開く。どちらかが開けなければ、開いた物を閉じて投げる */
   listen(at: { host: string; plainPort: number; securePort: number }): Promise<ListenAddresses>;
   /** 待つのをやめ、走っている要求を graceMs まで待ってから、残った接続を切る */
@@ -78,7 +78,7 @@ const closeServer = (server: http.Server | http2.Http2SecureServer) =>
     });
   });
 
-export const createReplayServer = (options: ReplayServerOptions): ReplayServer => {
+export const createViewerServer = (options: ViewerServerOptions): ViewerServer => {
   const log = options.log ?? ((line: string) => void process.stdout.write(`${line}\n`));
   const logError = options.logError ?? ((line: string) => void process.stderr.write(`${line}\n`));
   const upstreamOptions: UpstreamOptions = {
@@ -91,7 +91,7 @@ export const createReplayServer = (options: ReplayServerOptions): ReplayServer =
   );
   const context = { upstream: options.upstream, upstreamOptions, cache: pagesCache, logError };
 
-  const route = async (req: ReplayRequest, res: ReplayResponse): Promise<void> => {
+  const route = async (req: ViewerRequest, res: ViewerResponse): Promise<void> => {
     const target = req.url ?? "";
     if (!target.startsWith("/")) {
       sendText(req, res, 400, "the request target must be a path");
@@ -118,7 +118,7 @@ export const createReplayServer = (options: ReplayServerOptions): ReplayServer =
   };
 
   let active = 0;
-  const handle = (req: ReplayRequest, res: ReplayResponse): void => {
+  const handle = (req: ViewerRequest, res: ViewerResponse): void => {
     const started = performance.now();
     // 相手の address は受けた時に取る。HTTP/2 では答えを閉じた後に socket を引くと、stream が閉じていて
     // 値が無い (記録が `-` になっていた)。nginx の $remote_addr は HTTP/2 でも出ていた
