@@ -1,4 +1,4 @@
-# replay — self-hosted ReplayWeb.page.
+# replayweb-server — self-hosted ReplayWeb.page.
 # Multi-stage: resolve the viewer from the lockfile, compile the server, run it
 # on Node. The last stage is the one that runs: BrowserHive's build-images.mjs
 # and capture-ledger's compose both build the last stage without a target.

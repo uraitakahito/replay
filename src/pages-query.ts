@@ -12,7 +12,7 @@ import type { Upstream } from "./config.js";
 import { decodeKeyPath, encodeKeyPath } from "./key-path.js";
 import type { PagesIndex } from "./replay-bundle.js";
 import { BundleFormatError, parsePagesJson, queryPages } from "./replay-bundle.js";
-import type { ReplayRequest, ReplayResponse } from "./respond.js";
+import type { ViewerRequest, ViewerResponse } from "./respond.js";
 import { refuseUnlessRead, sendJson } from "./respond.js";
 import type { UpstreamOptions } from "./upstream.js";
 import { UpstreamError, sendUpstream } from "./upstream.js";
@@ -183,8 +183,8 @@ export interface PagesQueryContext {
  * @param rawQuery `?` の後ろ (無ければ undefined)
  */
 export const answerPagesQuery = async (
-  req: ReplayRequest,
-  res: ReplayResponse,
+  req: ViewerRequest,
+  res: ViewerResponse,
   rawRest: string,
   rawQuery: string | undefined,
   context: PagesQueryContext,

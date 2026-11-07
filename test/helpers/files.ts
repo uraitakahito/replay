@@ -20,7 +20,7 @@ const temporaryDirectory = (prefix: string): string => {
 };
 
 export const STATIC_CONTENT = {
-  "index.html": "<!doctype html><title>replay</title><p>Date ▲</p>\n",
+  "index.html": "<!doctype html><title>viewer</title><p>Date ▲</p>\n",
   "ui.js": "console.log('ui — ▲');\n",
   // Service Worker は 1 MB を超える (CI が image で大きさを見る)。全体を返すかを見るので大きくする
   "sw.js": `// sw\n${"self.x = 1;\n".repeat(150_000)}`,
@@ -32,7 +32,7 @@ export const STATIC_CONTENT = {
 
 /** image の public/ と同じ 6 つを置いたフォルダ */
 export const makeStaticDirectory = (): string => {
-  const dir = temporaryDirectory("replay-static-");
+  const dir = temporaryDirectory("viewer-static-");
   for (const [name, content] of Object.entries(STATIC_CONTENT)) {
     writeFileSync(join(dir, name), content);
   }
@@ -51,7 +51,7 @@ export interface SelfSignedCertificate {
  * 付けない (手元の許可の設定が、その名前を読むのを止めるため)。
  */
 export const makeSelfSignedCertificate = (): SelfSignedCertificate => {
-  const dir = temporaryDirectory("replay-tls-");
+  const dir = temporaryDirectory("viewer-tls-");
   const certPath = join(dir, "tls-certificate");
   const keyPath = join(dir, "tls-private");
   execFileSync(
@@ -82,7 +82,7 @@ export const makeSelfSignedCertificate = (): SelfSignedCertificate => {
 
 /** 中身を書いた一時のファイル */
 export const writeTemporaryFile = (name: string, content: string): string => {
-  const path = join(temporaryDirectory("replay-file-"), name);
+  const path = join(temporaryDirectory("viewer-file-"), name);
   writeFileSync(path, content);
   return path;
 };

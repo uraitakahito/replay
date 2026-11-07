@@ -19,13 +19,13 @@ import { createSecureContext } from "node:tls";
 import { fileURLToPath } from "node:url";
 import type { Config } from "./config.js";
 import { RESOLVER_WARNING, StartupError, hasNameserver, loadConfig } from "./config.js";
-import type { ListenAddresses, ReplayServer } from "./server.js";
-import { DEFAULT_SHUTDOWN_GRACE_MS, createReplayServer } from "./server.js";
+import type { ListenAddresses, ViewerServer } from "./server.js";
+import { DEFAULT_SHUTDOWN_GRACE_MS, createViewerServer } from "./server.js";
 import type { StaticFiles } from "./static.js";
 import { loadStaticFiles } from "./static.js";
 
 /** process の、ここで使う所 */
-export interface ReplayProcess {
+export interface ViewerProcess {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly stdout: { write(text: string): unknown };
   readonly stderr: { write(text: string): unknown };
@@ -54,8 +54,8 @@ export interface RunOptions {
   readonly logError?: (line: string) => void;
 }
 
-export interface RunningReplay {
-  readonly server: ReplayServer;
+export interface RunningViewer {
+  readonly server: ViewerServer;
   readonly addresses: ListenAddresses;
   /** SIGTERM を受けたときと同じ閉じ方 */
   readonly shutdown: () => Promise<void>;
@@ -70,14 +70,14 @@ const readText = (path: string): string | undefined => {
 };
 
 /** root で動いていれば、runAs の利用者に降りる。降りられなければ WARN を出し、root のまま続ける。 */
-const dropPrivileges = (proc: ReplayProcess, runAs: string): void => {
+const dropPrivileges = (proc: ViewerProcess, runAs: string): void => {
   if (proc.getuid?.() !== 0) return;
   if (proc.setgid === undefined || proc.setuid === undefined) return;
   try {
     proc.setgroups?.([]);
     proc.setgid(runAs);
     proc.setuid(runAs);
-    proc.stdout.write(`replay: bound the ports as root, now serving as ${runAs}\n`);
+    proc.stdout.write(`replayweb-server: bound the ports as root, now serving as ${runAs}\n`);
   } catch (error) {
     proc.stderr.write(
       `WARN: could not switch to the ${runAs} user (${(error as Error).message}); serving as root\n`,
@@ -86,9 +86,9 @@ const dropPrivileges = (proc: ReplayProcess, runAs: string): void => {
 };
 
 export const run = async (
-  proc: ReplayProcess,
+  proc: ViewerProcess,
   options: RunOptions = {},
-): Promise<RunningReplay | undefined> => {
+): Promise<RunningViewer | undefined> => {
   const fail = (message: string): undefined => {
     proc.stderr.write(`${message}\n`);
     proc.exit(1);
@@ -118,7 +118,7 @@ export const run = async (
   }
 
   const host = options.host ?? "0.0.0.0";
-  const server = createReplayServer({
+  const server = createViewerServer({
     upstream: config.upstream,
     staticFiles,
     tls: config.tls,
@@ -142,7 +142,7 @@ export const run = async (
   const secure =
     addresses.secure === undefined ? "" : ` and https on ${String(addresses.secure.port)}`;
   proc.stdout.write(
-    `replay: http on ${String(addresses.plain.port)}${secure}; /wacz/ and /q/ read ${config.bucketUrl}\n`,
+    `replayweb-server: http on ${String(addresses.plain.port)}${secure}; /wacz/ and /q/ read ${config.bucketUrl}\n`,
   );
 
   let closing: Promise<void> | undefined;
@@ -155,7 +155,7 @@ export const run = async (
   };
   for (const signal of ["SIGTERM", "SIGINT"] as const) {
     proc.on(signal, () => {
-      proc.stdout.write(`replay: ${signal}, closing\n`);
+      proc.stdout.write(`replayweb-server: ${signal}, closing\n`);
       void shutdown();
     });
   }

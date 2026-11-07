@@ -3,23 +3,23 @@ import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { cleanupTemporaryDirectories } from "./helpers/files.js";
 import { send, stubLookup } from "./helpers/net.js";
-import type { TestReplay } from "./helpers/replay.js";
-import { startReplay } from "./helpers/replay.js";
+import type { TestViewer } from "./helpers/viewer.js";
+import { startViewer } from "./helpers/viewer.js";
 import type { StandInStore } from "./helpers/store.js";
 import { BUCKET, STORE_HOST, startStore } from "./helpers/store.js";
 
 const WACZ = Buffer.from(Array.from({ length: 1000 }, (_, n) => n % 251));
 
 let store: StandInStore;
-let replay: TestReplay;
+let viewer: TestViewer;
 
 beforeAll(async () => {
   store = await startStore();
-  replay = await startReplay(store.bucketUrl, { upstreamTimeoutMs: 300 });
+  viewer = await startViewer(store.bucketUrl, { upstreamTimeoutMs: 300 });
 });
 
 afterAll(async () => {
-  await replay.close();
+  await viewer.close();
   await store.close();
   cleanupTemporaryDirectories();
 });
@@ -30,7 +30,7 @@ beforeEach(() => {
 
 afterEach(() => {
   store.requests.length = 0;
-  replay.dns.calls.length = 0;
+  viewer.dns.calls.length = 0;
   store.delay(0);
   store.stallAfterFirstChunk(false);
   store.cutAfterFirstChunk(false);
@@ -39,7 +39,7 @@ afterEach(() => {
 
 describe("/wacz/<鍵> の中継（範囲と条件）", () => {
   it("Range を渡し、206・Content-Range・Accept-Ranges・Content-Type をそのまま返す", async () => {
-    const res = await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz", {
+    const res = await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz", {
       headers: { range: "bytes=10-19" },
     });
     expect(res.status).toBe(206);
@@ -52,9 +52,9 @@ describe("/wacz/<鍵> の中継（範囲と条件）", () => {
   });
 
   it("If-Range・If-None-Match などの条件を渡し、保管庫の 304 をそのまま返す", async () => {
-    const first = await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz");
+    const first = await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz");
     const etag = first.headers.etag!;
-    const res = await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz", {
+    const res = await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz", {
       headers: {
         "if-none-match": etag,
         "if-range": etag,
@@ -74,7 +74,7 @@ describe("/wacz/<鍵> の中継（範囲と条件）", () => {
   });
 
   it("Authorization は渡さない（同じ要求の Range は渡す）", async () => {
-    const res = await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz", {
+    const res = await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz", {
       headers: { authorization: "Bearer secret", range: "bytes=0-0" },
     });
     expect(res.status).toBe(206);
@@ -84,7 +84,7 @@ describe("/wacz/<鍵> の中継（範囲と条件）", () => {
   });
 
   it("範囲と条件のほかの header（Cookie・Origin など）も渡さない", async () => {
-    await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz", {
+    await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz", {
       headers: { cookie: "s=1", origin: "https://other-site.test", "x-amz-security-token": "t" },
     });
     const seen = store.requests[0]!.headers;
@@ -94,19 +94,19 @@ describe("/wacz/<鍵> の中継（範囲と条件）", () => {
   });
 
   it("Host は保管庫の host:port にする", async () => {
-    await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz");
+    await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz");
     expect(store.requests[0]!.headers.host).toBe(`${STORE_HOST}:${String(store.port)}`);
   });
 
   it("query は書いたとおりに渡す", async () => {
-    await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz?versionId=1&x=%2F+y");
+    await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz?versionId=1&x=%2F+y");
     expect(store.requests[0]!.url).toBe(
       `/${BUCKET}/org/acme/2026-11/a_c1.wacz?versionId=1&x=%2F+y`,
     );
   });
 
   it("HEAD は HEAD のまま渡し、header だけを返す", async () => {
-    const res = await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz", { method: "HEAD" });
+    const res = await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz", { method: "HEAD" });
     expect(res.status).toBe(200);
     expect(res.headers["content-length"]).toBe("1000");
     expect(res.body.length).toBe(0);
@@ -114,7 +114,7 @@ describe("/wacz/<鍵> の中継（範囲と条件）", () => {
   });
 
   it("保管庫の 404 は status・header・本文をそのまま返す", async () => {
-    const res = await send(replay.base, "/wacz/org/acme/missing.wacz");
+    const res = await send(viewer.base, "/wacz/org/acme/missing.wacz");
     expect(res.status).toBe(404);
     expect(res.headers["content-type"]).toBe("application/xml");
     expect(res.body.toString()).toBe(
@@ -129,7 +129,7 @@ describe("/wacz/<鍵> の中継（範囲と条件）", () => {
       "x-hop": "1",
       "x-kept": "2",
     });
-    const res = await send(replay.base, "/wacz/hop.wacz");
+    const res = await send(viewer.base, "/wacz/hop.wacz");
     expect(res.status).toBe(200);
     expect(res.headers["keep-alive"]).toBeUndefined();
     expect(res.headers["x-hop"]).toBeUndefined();
@@ -141,7 +141,7 @@ describe("/wacz/<鍵> の鍵の綴り", () => {
   it("%XX を含む鍵は 1 度だけ解き、保管庫に元の鍵で届く", async () => {
     // BrowserHive はラベルを百分率の符号で鍵に入れる: 鍵そのものが `%20` を含む
     store.put("c1_hello%20world.wacz", WACZ);
-    const res = await send(replay.base, "/wacz/c1_hello%2520world.wacz");
+    const res = await send(viewer.base, "/wacz/c1_hello%2520world.wacz");
     expect(res.status).toBe(200);
     expect(store.requests[0]!.url).toBe(`/${BUCKET}/c1_hello%2520world.wacz`);
     expect(store.requests[0]!.key).toBe("c1_hello%20world.wacz");
@@ -149,7 +149,7 @@ describe("/wacz/<鍵> の鍵の綴り", () => {
 
   it("符号にした日本語の鍵も、同じ鍵で届く", async () => {
     store.put("c1_日本.wacz", WACZ);
-    const res = await send(replay.base, "/wacz/c1_%E6%97%A5%E6%9C%AC.wacz");
+    const res = await send(viewer.base, "/wacz/c1_%E6%97%A5%E6%9C%AC.wacz");
     expect(res.status).toBe(200);
     expect(store.requests[0]!.key).toBe("c1_日本.wacz");
   });
@@ -162,19 +162,19 @@ describe("/wacz/<鍵> の鍵の綴り", () => {
     "org%2F..%2Fx.wacz",
     "./x.wacz",
   ])("/wacz/%s は 400 で、保管庫へ何も送らない", async (key) => {
-    const res = await send(replay.base, `/wacz/${key}`);
+    const res = await send(viewer.base, `/wacz/${key}`);
     expect(res.status).toBe(400);
     expect(store.requests).toEqual([]);
   });
 
   it("壊れた百分率の符号は 400 で、保管庫へ何も送らない", async () => {
-    const res = await send(replay.base, "/wacz/a%ZZ.wacz");
+    const res = await send(viewer.base, "/wacz/a%ZZ.wacz");
     expect(res.status).toBe(400);
     expect(store.requests).toEqual([]);
   });
 
   it.each(["POST", "PUT", "DELETE"])("%s は 405 で、保管庫へ何も送らない", async (method) => {
-    const res = await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz", { method });
+    const res = await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz", { method });
     expect(res.status).toBe(405);
     expect(store.requests).toEqual([]);
   });
@@ -182,7 +182,7 @@ describe("/wacz/<鍵> の鍵の綴り", () => {
 
 describe("/wacz/<鍵> の届かない保管庫", () => {
   it("名前が引けなければ 502", async () => {
-    const unresolved = await startReplay(store.bucketUrl, { lookup: stubLookup({}).lookup });
+    const unresolved = await startViewer(store.bucketUrl, { lookup: stubLookup({}).lookup });
     try {
       const res = await send(unresolved.base, "/wacz/org/acme/2026-11/a_c1.wacz");
       expect(res.status).toBe(502);
@@ -197,7 +197,7 @@ describe("/wacz/<鍵> の届かない保管庫", () => {
     await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
     const port = (closed.address() as AddressInfo).port;
     await new Promise<void>((resolve) => closed.close(() => resolve()));
-    const refused = await startReplay(`http://${STORE_HOST}:${String(port)}/${BUCKET}`);
+    const refused = await startViewer(`http://${STORE_HOST}:${String(port)}/${BUCKET}`);
     try {
       const res = await send(refused.base, "/wacz/x.wacz");
       expect(res.status).toBe(502);
@@ -209,23 +209,23 @@ describe("/wacz/<鍵> の届かない保管庫", () => {
 
   it("保管庫が答えないまま時間が切れたら 504", async () => {
     store.delay(5_000);
-    const res = await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz");
+    const res = await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz");
     expect(res.status).toBe(504);
   });
 
   it("本文の途中で保管庫が黙ったら、受け手への接続も切る", async () => {
     store.stallAfterFirstChunk(true);
-    await expect(send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz")).rejects.toThrow();
+    await expect(send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz")).rejects.toThrow();
   });
 
   it("本文の途中で保管庫が切れたら、受け手への接続も切る", async () => {
     store.cutAfterFirstChunk(true);
-    await expect(send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz")).rejects.toThrow();
+    await expect(send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz")).rejects.toThrow();
   });
 
   it("受け手が去ったら、保管庫への要求も止める", async () => {
     store.delay(5_000);
-    const patient = await startReplay(store.bucketUrl, { upstreamTimeoutMs: 10_000 });
+    const patient = await startViewer(store.bucketUrl, { upstreamTimeoutMs: 10_000 });
     try {
       const url = new URL(patient.base);
       const request = http.request({
@@ -247,11 +247,11 @@ describe("/wacz/<鍵> の届かない保管庫", () => {
 
 describe("名前の引き方", () => {
   it("名前は要求ごとに IPv4 で引く", async () => {
-    await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz");
-    await send(replay.base, "/wacz/org/acme/2026-11/a_c1.wacz");
-    expect(replay.dns.calls).toHaveLength(2);
+    await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz");
+    await send(viewer.base, "/wacz/org/acme/2026-11/a_c1.wacz");
+    expect(viewer.dns.calls).toHaveLength(2);
     expect(
-      replay.dns.calls.every((call) => call.hostname === STORE_HOST && call.family === 4),
+      viewer.dns.calls.every((call) => call.hostname === STORE_HOST && call.family === 4),
     ).toBe(true);
   });
 
@@ -265,9 +265,9 @@ describe("名前の引き方", () => {
       "/wacz/http://other-site.test/x",
       "/q/org/a/crawls/b/r1/pages?url=http://other-site.test/",
     ]) {
-      await send(replay.base, path);
+      await send(viewer.base, path);
     }
-    expect(new Set(replay.dns.calls.map((call) => call.hostname))).toEqual(new Set([STORE_HOST]));
+    expect(new Set(viewer.dns.calls.map((call) => call.hostname))).toEqual(new Set([STORE_HOST]));
     expect(store.requests.every((seen) => seen.url.startsWith(`/${BUCKET}/`))).toBe(true);
   });
 });

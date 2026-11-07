@@ -53,12 +53,12 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Build the image
-        run: docker build -t replay:ci .
+        run: docker build -t replayweb-server:ci .
 
       # Serve it and ask for the things the stacks depend on.
       - name: Serve and probe
         run: |
-          docker run -d --name replay-ci -p 8899:8080 replay:ci
+          docker run -d --name replayweb-server-ci -p 8899:8080 replayweb-server:ci
           for _ in $(seq 30); do
             curl -sf http://127.0.0.1:8899/__version >/dev/null && break
             sleep 1
@@ -88,14 +88,14 @@ jobs:
 
           # It starts as root (to bind 443) and then switches to `node`.
           echo "--- serving as node (uid 1000) ---"
-          docker exec replay-ci grep -E '^Uid:[[:space:]]+1000[[:space:]]' /proc/1/status
+          docker exec replayweb-server-ci grep -E '^Uid:[[:space:]]+1000[[:space:]]' /proc/1/status
 
       # node is PID 1. Without its own SIGTERM handler the signal is ignored
       # and `docker stop` falls back to SIGKILL after the timeout (exit 137).
       - name: Stops on SIGTERM
         run: |
-          docker stop -t 10 replay-ci
-          test "$(docker inspect -f '{{.State.ExitCode}}' replay-ci)" = 0
+          docker stop -t 10 replayweb-server-ci
+          test "$(docker inspect -f '{{.State.ExitCode}}' replayweb-server-ci)" = 0
 
       # TLS_CERT and TLS_KEY together open 443 with TLS and HTTP/2, and 8080
       # stays open. The key is 0600 and owned by the runner: the server reads
@@ -106,8 +106,8 @@ jobs:
           openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
             -keyout tls/tls.key -out tls/tls.crt -days 1 -subj /CN=localhost \
             -addext subjectAltName=DNS:localhost,IP:127.0.0.1
-          docker run -d --name replay-tls -p 8443:443 -p 8898:8080 -v "$PWD/tls:/tls:ro" \
-            -e TLS_CERT=/tls/tls.crt -e TLS_KEY=/tls/tls.key replay:ci
+          docker run -d --name replayweb-server-tls -p 8443:443 -p 8898:8080 -v "$PWD/tls:/tls:ro" \
+            -e TLS_CERT=/tls/tls.crt -e TLS_KEY=/tls/tls.key replayweb-server:ci
           for _ in $(seq 30); do
             curl -sf --cacert tls/tls.crt https://localhost:8443/__version >/dev/null && break
             sleep 1
@@ -132,8 +132,8 @@ jobs:
           ]}
           JSON
           python3 -m http.server 9000 --bind 127.0.0.1 --directory store > store.log 2>&1 &
-          docker run -d --name replay-q --network host \
-            -e S3_BUCKET_URL=http://127.0.0.1:9000/bucket replay:ci
+          docker run -d --name replayweb-server-q --network host \
+            -e S3_BUCKET_URL=http://127.0.0.1:9000/bucket replayweb-server:ci
           for _ in $(seq 30); do
             curl -sf http://127.0.0.1:8080/__version >/dev/null && break
             sleep 1
@@ -146,7 +146,7 @@ jobs:
       - name: Container logs
         if: always()
         run: |
-          for name in replay-ci replay-tls replay-q; do
+          for name in replayweb-server-ci replayweb-server-tls replayweb-server-q; do
             echo "--- $name ---"
             docker logs "$name" || true
           done
